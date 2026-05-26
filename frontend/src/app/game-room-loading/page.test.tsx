@@ -13,17 +13,23 @@ vi.mock("@/clients/GameRoomLoadingClient", () => ({
   ),
 }));
 
+async function renderLoadingPage(
+  searchParams?: Promise<Record<string, string | string[] | undefined>>,
+) {
+  return render(await GameRoomLoadingPage({ searchParams }));
+}
+
 describe("Game Room Loading Page - Accessibility", () => {
   describe("Landmarks and ARIA", () => {
-    test("renders main landmark with aria-label and busy state", () => {
-      const { container } = render(<GameRoomLoadingPage />);
+    test("renders main landmark with aria-label and busy state", async () => {
+      const { container } = await renderLoadingPage();
       const main = container.querySelector('main[aria-label="Game room loading"]');
       expect(main).toBeInTheDocument();
       expect(main).toHaveAttribute("aria-busy", "true");
     });
 
-    test("renders loading content region with aria-label", () => {
-      const { container } = render(<GameRoomLoadingPage />);
+    test("renders loading content region with aria-label", async () => {
+      const { container } = await renderLoadingPage();
       const region = container.querySelector(
         'section[aria-label="Game room loading content"]',
       );
@@ -31,15 +37,15 @@ describe("Game Room Loading Page - Accessibility", () => {
       expect(region).toHaveAttribute("id", "loading-content-region");
     });
 
-    test("includes visually hidden h1 heading", () => {
-      render(<GameRoomLoadingPage />);
+    test("includes visually hidden h1 heading", async () => {
+      await renderLoadingPage();
       expect(
         screen.getByRole("heading", { level: 1, name: "Loading Game Room" }),
       ).toBeInTheDocument();
     });
 
-    test("provides aria-live region for loading progress", () => {
-      const { container } = render(<GameRoomLoadingPage />);
+    test("provides aria-live region for loading progress", async () => {
+      const { container } = await renderLoadingPage();
       const announcer = container.querySelector("#loading-status-announcer");
       expect(announcer).toBeInTheDocument();
       expect(announcer).toHaveAttribute("role", "status");
@@ -54,14 +60,14 @@ describe("Game Room Loading Page - Accessibility", () => {
   });
 
   describe("Focus order", () => {
-    test("skip link targets the loading content region", () => {
-      render(<GameRoomLoadingPage />);
+    test("skip link targets the loading content region", async () => {
+      await renderLoadingPage();
       const skipLink = screen.getByRole("link", { name: "Skip to loading status" });
       expect(skipLink).toHaveAttribute("href", "#loading-content-region");
     });
 
-    test("tab order is: skip link → loading controls", () => {
-      render(<GameRoomLoadingPage />);
+    test("tab order is: skip link → loading controls", async () => {
+      await renderLoadingPage();
       const skipLink = screen.getByRole("link", { name: "Skip to loading status" });
       const cancel = screen.getByRole("button", { name: "Cancel loading" });
 
@@ -74,15 +80,15 @@ describe("Game Room Loading Page - Accessibility", () => {
       expect(focusables.indexOf(skipLink)).toBeLessThan(focusables.indexOf(cancel));
     });
 
-    test("skip link is keyboard focusable with visible focus styles", () => {
-      render(<GameRoomLoadingPage />);
+    test("skip link is keyboard focusable with visible focus styles", async () => {
+      await renderLoadingPage();
       const skipLink = screen.getByRole("link", { name: "Skip to loading status" });
       expect(skipLink.className).toContain("focus:ring-2");
       expect(skipLink.className).toContain("focus:not-sr-only");
     });
 
-    test("loading content region applies focus-visible styles to descendants", () => {
-      const { container } = render(<GameRoomLoadingPage />);
+    test("loading content region applies focus-visible styles to descendants", async () => {
+      const { container } = await renderLoadingPage();
       const region = container.querySelector("#loading-content-region");
       expect(region?.className).toContain("focus-visible");
     });
