@@ -15,16 +15,22 @@ vi.mock("@/components/game/GameBoard", () => ({
   ),
 }));
 
+async function renderGamePlayPage(
+  searchParams?: Promise<Record<string, string | string[] | undefined>>,
+) {
+  return render(await GamePlayPage({ searchParams }));
+}
+
 describe("Game Play Page - Accessibility", () => {
   describe("Landmarks and ARIA", () => {
-    test("renders main landmark with aria-label", () => {
-      const { container } = render(<GamePlayPage />);
+    test("renders main landmark with aria-label", async () => {
+      const { container } = await renderGamePlayPage();
       const main = container.querySelector('main[aria-label="Tycoon game play"]');
       expect(main).toBeInTheDocument();
     });
 
-    test("renders game board region with aria-label", () => {
-      const { container } = render(<GamePlayPage />);
+    test("renders game board region with aria-label", async () => {
+      const { container } = await renderGamePlayPage();
       const region = container.querySelector(
         'section[aria-label="Game board area"]',
       );
@@ -32,15 +38,15 @@ describe("Game Play Page - Accessibility", () => {
       expect(region).toHaveAttribute("id", "game-board-region");
     });
 
-    test("includes visually hidden h1 heading", () => {
-      render(<GamePlayPage />);
+    test("includes visually hidden h1 heading", async () => {
+      await renderGamePlayPage();
       expect(
         screen.getByRole("heading", { level: 1, name: "Game Play" }),
       ).toBeInTheDocument();
     });
 
-    test("provides aria-live region for game status updates", () => {
-      const { container } = render(<GamePlayPage />);
+    test("provides aria-live region for game status updates", async () => {
+      const { container } = await renderGamePlayPage();
       const announcer = container.querySelector("#game-status-announcer");
       expect(announcer).toBeInTheDocument();
       expect(announcer).toHaveAttribute("role", "status");
@@ -51,14 +57,14 @@ describe("Game Play Page - Accessibility", () => {
   });
 
   describe("Focus order", () => {
-    test("skip link targets the game board region", () => {
-      render(<GamePlayPage />);
+    test("skip link targets the game board region", async () => {
+      await renderGamePlayPage();
       const skipLink = screen.getByRole("link", { name: "Skip to game board" });
       expect(skipLink).toHaveAttribute("href", "#game-board-region");
     });
 
-    test("tab order is: skip link → game board → board controls", () => {
-      render(<GamePlayPage />);
+    test("tab order is: skip link → game board → board controls", async () => {
+      await renderGamePlayPage();
       const skipLink = screen.getByRole("link", { name: "Skip to game board" });
       const board = screen.getByTestId("game-board");
       const inventory = screen.getByRole("button", { name: "Open inventory" });
@@ -75,15 +81,15 @@ describe("Game Play Page - Accessibility", () => {
       expect(focusables.indexOf(inventory)).toBeLessThan(focusables.indexOf(shop));
     });
 
-    test("skip link is keyboard focusable with visible focus styles", () => {
-      render(<GamePlayPage />);
+    test("skip link is keyboard focusable with visible focus styles", async () => {
+      await renderGamePlayPage();
       const skipLink = screen.getByRole("link", { name: "Skip to game board" });
       expect(skipLink.className).toContain("focus:ring-2");
       expect(skipLink.className).toContain("focus:not-sr-only");
     });
 
-    test("game board region applies focus-visible styles to descendants", () => {
-      const { container } = render(<GamePlayPage />);
+    test("game board region applies focus-visible styles to descendants", async () => {
+      const { container } = await renderGamePlayPage();
       const region = container.querySelector("#game-board-region");
       expect(region?.className).toContain("focus-visible");
     });
