@@ -4,6 +4,7 @@ import JoinRoomForm, {
   type JoinRoomFormPreviewState,
 } from "@/components/settings/JoinRoomForm";
 import JoinRoomLoading from "@/app/join-room/loading";
+import { JOIN_ROOM_I18N } from "@/lib/join-room/i18n-keys";
 
 function JoinRoomStoryShell({
   children,
@@ -66,7 +67,7 @@ export const RoomNotFound: Story = {
   render: () =>
     previewStory({
       code: "NOTFND",
-      errors: { _form: "Room not found. Check the code and try again." },
+      errors: { _form: JOIN_ROOM_I18N.errors.notFound },
     }),
 };
 
@@ -74,9 +75,7 @@ export const InviteExpired: Story = {
   render: () =>
     previewStory({
       code: "EXPIRD",
-      errors: {
-        _form: "This invite link has expired. Ask the host for a new one.",
-      },
+      errors: { _form: JOIN_ROOM_I18N.errors.inviteExpired },
     }),
 };
 
@@ -84,7 +83,7 @@ export const RoomFull: Story = {
   render: () =>
     previewStory({
       code: "FULL00",
-      errors: { _form: "Room is full. Try a different room." },
+      errors: { _form: JOIN_ROOM_I18N.errors.roomFull },
     }),
 };
 
@@ -92,7 +91,7 @@ export const Unauthorized: Story = {
   render: () =>
     previewStory({
       code: "UNAUTH",
-      errors: { _form: "Please sign in to join a room." },
+      errors: { _form: JOIN_ROOM_I18N.errors.unauthorized },
     }),
 };
 

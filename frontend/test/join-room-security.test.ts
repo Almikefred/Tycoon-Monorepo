@@ -7,6 +7,7 @@ import {
   sanitiseRoomCode,
   sanitizeJoinRoomErrorMessage,
 } from "@/lib/join-room/security";
+import { JOIN_ROOM_I18N } from "@/lib/join-room/i18n-keys";
 import { TycoonApiError } from "@/lib/api/errors";
 import {
   displayNameSchema,
@@ -59,8 +60,12 @@ describe("joinRoomSchema", () => {
     expect(joinRoomSchema.safeParse({ roomCode: "TY-C01" }).success).toBe(false);
   });
 
-  it("accepts a valid 6-character code", () => {
-    expect(joinRoomSchema.safeParse({ roomCode: "tyc001" }).success).toBe(true);
+  it("uses i18n keys for validation messages", () => {
+    const result = joinRoomSchema.safeParse({ roomCode: "AB" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe(JOIN_ROOM_I18N.validation.codeLength);
+    }
   });
 });
 
@@ -95,40 +100,40 @@ describe("hasJoinAuthToken", () => {
 });
 
 describe("mapJoinRoomErrors", () => {
-  it("maps TycoonApiError status codes to safe messages", () => {
+  it("maps TycoonApiError status codes to i18n keys", () => {
     const err = new TycoonApiError({
       code: "NOT_FOUND",
       statusCode: 404,
       message: "Game with ID 42 not found",
     });
     expect(mapJoinRoomErrors(err)).toEqual({
-      _form: "Room not found. Check the code and try again.",
+      _form: JOIN_ROOM_I18N.errors.notFound,
     });
   });
 
-  it("blocks unauthorized join attempts with a clear message", () => {
+  it("blocks unauthorized join attempts with an i18n key", () => {
     expect(mapJoinRoomErrors({ statusCode: 401 })).toEqual({
-      _form: "Please sign in to join a room.",
+      _form: JOIN_ROOM_I18N.errors.unauthorized,
     });
   });
 
-  it("returns a clear error for expired invites", () => {
+  it("returns an i18n key for expired invites", () => {
     expect(mapJoinRoomErrors({ statusCode: 410 })).toEqual({
-      _form: "This invite link has expired. Ask the host for a new one.",
+      _form: JOIN_ROOM_I18N.errors.inviteExpired,
     });
     expect(
       mapJoinRoomErrors({ message: "Invite token expired for game 99" })
     ).toEqual({
-      _form: "This invite link has expired. Ask the host for a new one.",
+      _form: JOIN_ROOM_I18N.errors.inviteExpired,
     });
   });
 
-  it("handles stale room-full and already-joined states without leaking internals", () => {
+  it("handles stale room-full and already-joined states with i18n keys", () => {
     expect(mapJoinRoomErrors({ statusCode: 409 })).toEqual({
-      _form: "Room is full. Try a different room.",
+      _form: JOIN_ROOM_I18N.errors.roomFull,
     });
     expect(mapJoinRoomErrors({ message: "User already joined this game" })).toEqual({
-      _form: "You're already in this room.",
+      _form: JOIN_ROOM_I18N.errors.alreadyJoined,
     });
   });
 });

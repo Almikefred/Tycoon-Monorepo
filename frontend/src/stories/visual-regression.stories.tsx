@@ -2,6 +2,7 @@ import React from 'react';
 import WhatIsTycoon from '@/components/guest/WhatIsTycoon';
 import { BoardSquare } from '@/components/game/BoardSquare';
 import JoinRoomForm from '@/components/settings/JoinRoomForm';
+import { JOIN_ROOM_I18N } from '@/lib/join-room/i18n-keys';
 
 export default {
   title: 'Visual Regression/Baseline',
@@ -53,7 +54,7 @@ export const JoinRoomRoomNotFound = () => (
       previewState={{
         skipAutoFocus: true,
         code: 'NOTFND',
-        errors: { _form: 'Room not found. Check the code and try again.' },
+        errors: { _form: JOIN_ROOM_I18N.errors.notFound },
       }}
     />
   </div>
@@ -67,7 +68,7 @@ export const JoinRoomInviteExpired = () => (
         skipAutoFocus: true,
         code: 'EXPIRD',
         errors: {
-          _form: 'This invite link has expired. Ask the host for a new one.',
+          _form: JOIN_ROOM_I18N.errors.inviteExpired,
         },
       }}
     />
@@ -81,7 +82,7 @@ export const JoinRoomFull = () => (
       previewState={{
         skipAutoFocus: true,
         code: 'FULL00',
-        errors: { _form: 'Room is full. Try a different room.' },
+        errors: { _form: JOIN_ROOM_I18N.errors.roomFull },
       }}
     />
   </div>
@@ -94,7 +95,7 @@ export const JoinRoomUnauthorized = () => (
       previewState={{
         skipAutoFocus: true,
         code: 'UNAUTH',
-        errors: { _form: 'Please sign in to join a room.' },
+        errors: { _form: JOIN_ROOM_I18N.errors.unauthorized },
       }}
     />
   </div>

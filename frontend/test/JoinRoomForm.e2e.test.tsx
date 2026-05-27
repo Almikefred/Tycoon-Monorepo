@@ -4,6 +4,7 @@
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import "./mocks/join-room-i18n";
 import JoinRoomForm from "@/components/settings/JoinRoomForm";
 
 // Mock next/navigation

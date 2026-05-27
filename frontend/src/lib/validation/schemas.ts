@@ -9,6 +9,7 @@
  *  - GameSettings    : playerName non-empty, customStake positive number when applicable
  */
 import { z } from "zod";
+import { JOIN_ROOM_I18N } from "@/lib/join-room/i18n-keys";
 
 export const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -34,8 +35,8 @@ export const joinRoomSchema = z.object({
     .pipe(
       z
         .string()
-        .length(6, "Room code must be exactly 6 characters")
-        .regex(/^[A-Z0-9]+$/, "Room code must be letters and numbers only")
+        .length(6, JOIN_ROOM_I18N.validation.codeLength)
+        .regex(/^[A-Z0-9]+$/, JOIN_ROOM_I18N.validation.codeFormat)
     ),
 });
 
