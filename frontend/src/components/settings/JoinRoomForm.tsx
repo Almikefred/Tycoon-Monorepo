@@ -52,6 +52,23 @@ export default function JoinRoomForm(): React.JSX.Element {
     inputRef.current?.focus();
   }, []);
 
+  // Keyboard shortcuts: Escape clears the input, Ctrl/Cmd+Enter submits the form
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        setCode("");
+        setErrors({});
+        inputRef.current?.blur();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        formRef.current?.requestSubmit();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     // Sanitise on every change: strip non-alphanumeric chars, uppercase, cap at 6.
     setCode(sanitiseRoomCode(e.target.value));
@@ -105,7 +122,8 @@ export default function JoinRoomForm(): React.JSX.Element {
   const isValid = joinRoomSchema.safeParse({ roomCode: code }).success;
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-5" aria-keyshortcuts="Escape Ctrl+Enter">
+
       {/* Form-level error banner — shown for server/network errors that are not
           tied to a specific field (e.g. room not found, room full, 5xx). */}
       {errors._form && (
