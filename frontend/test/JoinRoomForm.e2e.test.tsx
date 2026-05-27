@@ -5,6 +5,7 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 import userEvent from "@testing-library/user-event";
+import "./mocks/join-room-i18n";
 import JoinRoomForm from "@/components/settings/JoinRoomForm";
 
 // Mock next/navigation
@@ -22,8 +23,12 @@ vi.mock("@/lib/api/client", () => ({
 beforeEach(() => {
   mockPush.mockClear();
   mockPost.mockClear();
-  // Default: successful join
   mockPost.mockResolvedValue({ id: 1, code: "TYC001" });
+  localStorage.setItem("access_token", "test-token");
+});
+
+afterEach(() => {
+  localStorage.removeItem("access_token");
 });
 
 describe("JoinRoomForm", () => {
@@ -80,6 +85,18 @@ describe("JoinRoomForm", () => {
       );
       expect(mockPush).toHaveBeenCalledWith("/game-waiting?gameCode=TYC001");
     });
+  });
+
+  it("blocks join when user is not authenticated", async () => {
+    const user = userEvent.setup();
+    localStorage.removeItem("access_token");
+    render(<JoinRoomForm />);
+    await user.type(screen.getByLabelText(/room code/i), "TYC001");
+    await user.click(screen.getByRole("button", { name: /join/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("form-error-banner")).toHaveTextContent(/sign in/i);
+    });
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   it("shows loading state while API call is in flight", async () => {
@@ -281,6 +298,18 @@ describe("mapServerErrors", () => {
   it("maps 409 statusCode to room-full message", () => {
     expect(mapServerErrors({ statusCode: 409 })).toEqual({
       _form: "Room is full. Try a different room.",
+    });
+  });
+
+  it("maps 401 statusCode to sign-in message", () => {
+    expect(mapServerErrors({ statusCode: 401 })).toEqual({
+      _form: "Please sign in to join a room.",
+    });
+  });
+
+  it("maps 410 statusCode to expired invite message", () => {
+    expect(mapServerErrors({ statusCode: 410 })).toEqual({
+      _form: "This invite link has expired. Ask the host for a new one.",
     });
   });
 
