@@ -1,10 +1,8 @@
 import React from 'react';
 import WhatIsTycoon from '@/components/guest/WhatIsTycoon';
 import { BoardSquare } from '@/components/game/BoardSquare';
-import { ShopGrid } from '@/components/game/ShopGrid';
-import { ShopItem } from '@/components/game/ShopItem';
-import type { ShopItemData } from '@/components/game/ShopItem';
-import { Skeleton } from '@/components/ui/skeleton';
+import JoinRoomForm from '@/components/settings/JoinRoomForm';
+import { JOIN_ROOM_I18N } from '@/lib/join-room/i18n-keys';
 
 export default {
   title: 'Visual Regression/Baseline',
@@ -40,89 +38,83 @@ export const HUDBoardSquares = () => (
 
 HUDBoardSquares.storyName = 'HUD board squares (stable)';
 
-// ─── Shop Grid Stories ─────────────────────────────────────────────────────────
+/** Chromatic baseline — join room flow error / loading states (#843). */
+export const JoinRoomIdle = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8">
+    <JoinRoomForm previewState={{ skipAutoFocus: true, code: '' }} />
+  </div>
+);
+JoinRoomIdle.storyName = 'Join room — idle';
 
-export const ShopGridLoading = () => (
-  <div className="min-h-screen bg-[#010F10] p-8 text-white">
-    <h2 className="mb-4 text-xl font-bold">Shop Grid — Loading State</h2>
-    <p className="mb-4 text-sm text-gray-400">
-      Skeleton cards use min-h-[160px] to prevent CLS. Grid maintains same dimensions as populated grid.
+export const JoinRoomLoading = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8">
+    <JoinRoomForm
+      previewState={{ skipAutoFocus: true, code: 'ABC123', isLoading: true }}
+    />
+  </div>
+);
+JoinRoomLoading.storyName = 'Join room — loading';
+
+export const JoinRoomRoomNotFound = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8">
+    <JoinRoomForm
+      previewState={{
+        skipAutoFocus: true,
+        code: 'NOTFND',
+        errors: { _form: JOIN_ROOM_I18N.errors.notFound },
+      }}
+    />
+  </div>
+);
+JoinRoomRoomNotFound.storyName = 'Join room — room not found';
+
+export const JoinRoomInviteExpired = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8">
+    <JoinRoomForm
+      previewState={{
+        skipAutoFocus: true,
+        code: 'EXPIRD',
+        errors: {
+          _form: JOIN_ROOM_I18N.errors.inviteExpired,
+        },
+      }}
+    />
+  </div>
+);
+JoinRoomInviteExpired.storyName = 'Join room — invite expired';
+
+export const JoinRoomFull = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8">
+    <JoinRoomForm
+      previewState={{
+        skipAutoFocus: true,
+        code: 'FULL00',
+        errors: { _form: JOIN_ROOM_I18N.errors.roomFull },
+      }}
+    />
+  </div>
+);
+JoinRoomFull.storyName = 'Join room — room full';
+
+export const JoinRoomUnauthorized = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8">
+    <JoinRoomForm
+      previewState={{
+        skipAutoFocus: true,
+        code: 'UNAUTH',
+        errors: { _form: JOIN_ROOM_I18N.errors.unauthorized },
+      }}
+    />
+  </div>
+);
+JoinRoomUnauthorized.storyName = 'Join room — unauthorized';
+
+export const JoinRoomSuccess = () => (
+  <div className="min-h-screen bg-[var(--tycoon-bg)] p-8 text-center">
+    <p className="font-orbitron text-lg text-[var(--tycoon-accent)]">Join successful</p>
+    <p className="mt-2 text-sm text-[var(--tycoon-text)]/80">
+      Redirecting to the waiting room…
     </p>
-    <ShopGrid isLoading={true} columns={3} />
   </div>
 );
-
-ShopGridLoading.storyName = 'Shop Grid — Loading (CLS prevention)';
-
-export const ShopGridError = () => (
-  <div className="min-h-screen bg-[#010F10] p-8 text-white">
-    <h2 className="mb-4 text-xl font-bold">Shop Grid — Error State</h2>
-    <ShopGrid error="Failed to connect to shop server. Please try again." onRetry={() => {}} />
-  </div>
-);
-
-ShopGridError.storyName = 'Shop Grid — Error State';
-
-export const ShopGridEmpty = () => (
-  <div className="min-h-screen bg-[#010F10] p-8 text-white">
-    <h2 className="mb-4 text-xl font-bold">Shop Grid — Empty State</h2>
-    <ShopGrid items={[]} />
-  </div>
-);
-
-ShopGridEmpty.storyName = 'Shop Grid — Empty State';
-
-export const ShopGridPopulated = () => (
-  <div className="min-h-screen bg-[#010F10] p-8 text-white">
-    <h2 className="mb-4 text-xl font-bold">Shop Grid — Populated</h2>
-    <ShopGrid items={sampleItems} columns={3} onPurchase={(id) => console.log(id)} />
-  </div>
-);
-
-ShopGridPopulated.storyName = 'Shop Grid — Populated';
-
-export const ShopItemVariants = () => (
-  <div className="min-h-screen bg-[#010F10] p-8 text-white">
-    <h2 className="mb-4 text-xl font-bold">Shop Item — Rarity Variants</h2>
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <ShopItem id="common" name="Wooden Token" description="Simple token." price="10" icon="🪵" rarity="common" />
-      <ShopItem id="rare" name="Silver Badge" description="Shiny badge." price="100" icon="🥈" rarity="rare" />
-      <ShopItem id="epic" name="Golden Trophy" description="Gleaming trophy." price="500" icon="🏆" rarity="epic" />
-      <ShopItem id="legendary" name="Diamond Crown" description="Diamond crown." price="9999" icon="👑" rarity="legendary" />
-    </div>
-    <h2 className="mb-4 mt-8 text-xl font-bold">Shop Item — Disabled & No Description</h2>
-    <div className="grid grid-cols-2 gap-4">
-      <ShopItem id="disabled" name="Locked Item" description="Unavailable." price="0" icon="🔒" rarity="common" disabled />
-      <ShopItem id="nodesc" name="Mystery Box" description={null} price="25" icon="📦" rarity="rare" />
-    </div>
-  </div>
-);
-
-ShopItemVariants.storyName = 'Shop Item — All Variants';
-
-export const SkeletonCardDemo = () => (
-  <div className="min-h-screen bg-[#010F10] p-8 text-white">
-    <h2 className="mb-4 text-xl font-bold">Skeleton Card (CLS Prevention)</h2>
-    <p className="mb-4 text-sm text-gray-400">
-      The min-h-[160px] class ensures the skeleton reserves the same vertical space as a real card,
-      preventing cumulative layout shift (CLS) when items load.
-    </p>
-    <div className="w-72">
-      <div className="flex flex-col rounded-lg border-2 border-gray-200 dark:border-gray-700 p-4 min-h-[160px] gap-3">
-        <div className="flex items-start justify-between">
-          <Skeleton className="h-8 w-8 rounded" />
-          <Skeleton className="h-5 w-16 rounded" />
-        </div>
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-5/6" />
-        <div className="mt-auto flex items-center justify-between">
-          <Skeleton className="h-6 w-12" />
-          <Skeleton className="h-8 w-16 rounded-md" />
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-SkeletonCardDemo.storyName = 'Skeleton Card — CLS Prevention';
+JoinRoomSuccess.storyName = 'Join room — success redirect';
