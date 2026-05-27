@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { ZodError } from "zod";
@@ -21,6 +21,8 @@ import {
 } from "@/lib/join-room/security";
 import { apiClient } from "@/lib/api/client";
 import type { GameResponse } from "@/lib/api/types/dto";
+import { useJoinRoomTelemetry } from "@/hooks/useJoinRoomTelemetry";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 function parseZodErrors(error: ZodError): FieldErrors {
   const out: FieldErrors = {};
@@ -56,6 +58,7 @@ export default function JoinRoomForm({
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const lastSubmitRef = useRef<number>(0);
+  const formViewedRef = useRef(false);
 
   const errorId = "room-code-error";
 
@@ -106,6 +109,7 @@ export default function JoinRoomForm({
       const result = joinRoomSchema.safeParse({ roomCode: code });
       if (!result.success) {
         setErrors(parseZodErrors(result.error));
+        trackJoinFailed("validation");
         return;
       }
 
@@ -116,11 +120,31 @@ export default function JoinRoomForm({
 
       setIsLoading(true);
       setErrors({});
+
+      // Track the join attempt
+      trackJoinAttempted("submit_button");
+
       try {
-        await apiClient.post<GameResponse>(
+        const startTime = performance.now();
+
+        const response = await apiClient.post<GameResponse>(
           `/games/${encodeURIComponent(result.data.roomCode)}/join`,
           {}
         );
+
+        const duration = performance.now() - startTime;
+
+        // Track successful join
+        trackJoinSucceeded();
+
+        // Report performance metrics (non-blocking)
+        if (window.requestIdleCallback) {
+          requestIdleCallback(() => {
+            // Report join time to analytics if needed
+            console.debug(`[Join Room] Join completed in ${duration.toFixed(2)}ms`);
+          });
+        }
+
         router.push(`/game-waiting?gameCode=${encodeURIComponent(result.data.roomCode)}`);
       } catch (err: unknown) {
         setErrors(mapJoinRoomErrors(err));
@@ -128,7 +152,7 @@ export default function JoinRoomForm({
         setIsLoading(false);
       }
     },
-    [code, router]
+    [code, router, trackJoinAttempted, trackJoinSucceeded, trackJoinFailed, reportError, submitAttempts]
   );
 
   const isValid = joinRoomSchema.safeParse({ roomCode: code }).success;
