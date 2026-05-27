@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ZodError } from "zod";
 import { AlertCircle, RefreshCw } from "lucide-react";
@@ -11,6 +11,8 @@ import { joinRoomSchema } from "@/lib/validation/schemas";
 import { mapServerErrors, type FieldErrors } from "@/lib/validation/serverErrorMap";
 import { apiClient } from "@/lib/api/client";
 import type { GameResponse } from "@/lib/api/types/dto";
+import { useJoinRoomTelemetry } from "@/hooks/useJoinRoomTelemetry";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 /** Converts a Zod error into a flat field-keyed error map. */
 function parseZodErrors(error: ZodError): FieldErrors {
@@ -39,18 +41,33 @@ export default function JoinRoomForm(): React.JSX.Element {
   const [code, setCode] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [submitAttempts, setSubmitAttempts] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   /** Timestamp of the last submission attempt — used for client-side rate limiting. */
   const lastSubmitRef = useRef<number>(0);
+  const formViewedRef = useRef(false);
 
   const errorId = "room-code-error";
 
+  // Telemetry and error reporting hooks
+  const { trackFormViewed, trackJoinAttempted, trackJoinSucceeded, trackJoinFailed } =
+    useJoinRoomTelemetry("/join-room");
+  const { reportError } = useErrorReporting();
+
   // Move focus to the input on mount so keyboard users land directly in the form
-  React.useEffect(() => {
+  useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Track form viewed event once on component mount
+  useEffect(() => {
+    if (!formViewedRef.current) {
+      trackFormViewed("page_load");
+      formViewedRef.current = true;
+    }
+  }, [trackFormViewed]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     // Sanitise on every change: strip non-alphanumeric chars, uppercase, cap at 6.
@@ -82,24 +99,72 @@ export default function JoinRoomForm(): React.JSX.Element {
       const result = joinRoomSchema.safeParse({ roomCode: code });
       if (!result.success) {
         setErrors(parseZodErrors(result.error));
+        trackJoinFailed("validation");
         return;
       }
 
+      setSubmitAttempts((prev) => prev + 1);
       setIsLoading(true);
       setErrors({});
+
+      // Track the join attempt
+      trackJoinAttempted("submit_button");
+
       try {
-        await apiClient.post<GameResponse>(
+        const startTime = performance.now();
+
+        const response = await apiClient.post<GameResponse>(
           `/games/${encodeURIComponent(result.data.roomCode)}/join`,
           {}
         );
+
+        const duration = performance.now() - startTime;
+
+        // Track successful join
+        trackJoinSucceeded();
+
+        // Report performance metrics (non-blocking)
+        if (window.requestIdleCallback) {
+          requestIdleCallback(() => {
+            // Report join time to analytics if needed
+            console.debug(`[Join Room] Join completed in ${duration.toFixed(2)}ms`);
+          });
+        }
+
         router.push(`/game-waiting?gameCode=${encodeURIComponent(result.data.roomCode)}`);
       } catch (err: unknown) {
-        setErrors(mapServerErrors(err instanceof Error ? { message: err.message } : err));
+        const errorMap = mapServerErrors(err instanceof Error ? { message: err.message } : err);
+        setErrors(errorMap);
+
+        // Determine error type for telemetry
+        let errorType: "validation" | "not_found" | "room_full" | "server_error" | "unknown" =
+          "unknown";
+
+        if (err instanceof Error) {
+          const msg = err.message.toLowerCase();
+          if (msg.includes("404") || msg.includes("not found")) {
+            errorType = "not_found";
+          } else if (msg.includes("409") || msg.includes("full")) {
+            errorType = "room_full";
+          } else if (msg.includes("5")) {
+            errorType = "server_error";
+          }
+        }
+
+        trackJoinFailed(errorType);
+
+        // Report error if it's a server/network error
+        if (errorType === "server_error" || errorType === "unknown") {
+          reportError(err, {
+            context: "join_room_submit",
+            attemptNumber: submitAttempts + 1,
+          });
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [code, router]
+    [code, router, trackJoinAttempted, trackJoinSucceeded, trackJoinFailed, reportError, submitAttempts]
   );
 
   const isValid = joinRoomSchema.safeParse({ roomCode: code }).success;
