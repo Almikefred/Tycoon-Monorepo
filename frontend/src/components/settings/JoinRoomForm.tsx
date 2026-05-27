@@ -30,11 +30,25 @@ function parseZodErrors(error: ZodError): FieldErrors {
 /** Minimum milliseconds between successive join attempts (rate-limit guard). */
 const SUBMIT_COOLDOWN_MS = 2_000;
 
-export default function JoinRoomForm(): React.JSX.Element {
+/** Storybook-only initial state for visual regression snapshots. */
+export interface JoinRoomFormPreviewState {
+  code?: string;
+  errors?: FieldErrors;
+  isLoading?: boolean;
+  skipAutoFocus?: boolean;
+}
+
+export interface JoinRoomFormProps {
+  previewState?: JoinRoomFormPreviewState;
+}
+
+export default function JoinRoomForm({
+  previewState,
+}: JoinRoomFormProps = {}): React.JSX.Element {
   const router = useRouter();
-  const [code, setCode] = useState("");
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [code, setCode] = useState(previewState?.code ?? "");
+  const [errors, setErrors] = useState<FieldErrors>(previewState?.errors ?? {});
+  const [isLoading, setIsLoading] = useState(previewState?.isLoading ?? false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -45,8 +59,9 @@ export default function JoinRoomForm(): React.JSX.Element {
 
   // Move focus to the input on mount so keyboard users land directly in the form
   React.useEffect(() => {
+    if (previewState?.skipAutoFocus) return;
     inputRef.current?.focus();
-  }, []);
+  }, [previewState?.skipAutoFocus]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     // Sanitise on every change: strip non-alphanumeric chars, uppercase, cap at 6.
