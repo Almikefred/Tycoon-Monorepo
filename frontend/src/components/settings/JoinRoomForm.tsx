@@ -64,6 +64,23 @@ export default function JoinRoomForm({
     inputRef.current?.focus();
   }, [previewState?.skipAutoFocus]);
 
+  // Keyboard shortcuts: Escape clears the input, Ctrl/Cmd+Enter submits the form
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        setCode("");
+        setErrors({});
+        inputRef.current?.blur();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        formRef.current?.requestSubmit();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setCode(sanitiseRoomCode(e.target.value));
     setErrors(({ roomCode: _dropped, ...rest }) => rest as FieldErrors);
