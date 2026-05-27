@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { joinRoomSchema } from "@/lib/validation/schemas";
-import { mapServerErrors, type FieldErrors } from "@/lib/validation/serverErrorMap";
+import type { FieldErrors } from "@/lib/validation/serverErrorMap";
+import {
+  hasJoinAuthToken,
+  mapJoinRoomErrors,
+  sanitiseRoomCode,
+} from "@/lib/join-room/security";
 import { apiClient } from "@/lib/api/client";
 import type { GameResponse } from "@/lib/api/types/dto";
 
@@ -20,15 +25,6 @@ function parseZodErrors(error: ZodError): FieldErrors {
     if (!out[field]) out[field] = issue.message;
   }
   return out;
-}
-
-/**
- * Strip any character that is not alphanumeric, then uppercase and cap at 6.
- * Applied on every keystroke so the user never sees invalid characters in the
- * input — this is the primary client-side input sanitisation gate.
- */
-function sanitiseRoomCode(raw: string): string {
-  return raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 6);
 }
 
 /** Minimum milliseconds between successive join attempts (rate-limit guard). */
@@ -85,6 +81,11 @@ export default function JoinRoomForm(): React.JSX.Element {
         return;
       }
 
+      if (!hasJoinAuthToken()) {
+        setErrors({ _form: "Please sign in to join a room." });
+        return;
+      }
+
       setIsLoading(true);
       setErrors({});
       try {
@@ -94,7 +95,7 @@ export default function JoinRoomForm(): React.JSX.Element {
         );
         router.push(`/game-waiting?gameCode=${encodeURIComponent(result.data.roomCode)}`);
       } catch (err: unknown) {
-        setErrors(mapServerErrors(err instanceof Error ? { message: err.message } : err));
+        setErrors(mapJoinRoomErrors(err));
       } finally {
         setIsLoading(false);
       }

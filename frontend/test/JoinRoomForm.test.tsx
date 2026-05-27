@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import JoinRoomForm from "@/components/settings/JoinRoomForm";
 
 // ─── Mock next/navigation ─────────────────────────────────────────────────────
@@ -14,6 +14,10 @@ vi.mock("@/lib/api/client", () => ({
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function seedAuthToken() {
+  localStorage.setItem("access_token", "test-token");
+}
+
 function renderForm() {
   return render(<JoinRoomForm />);
 }
@@ -33,6 +37,11 @@ describe("JoinRoomForm — UI behaviour (SW-FE-015)", () => {
     pushMock.mockClear();
     postMock.mockClear();
     postMock.mockResolvedValue({ id: 1, code: "TYC001" });
+    seedAuthToken();
+  });
+
+  afterEach(() => {
+    localStorage.removeItem("access_token");
   });
 
   it("renders the input and a disabled Join button initially", () => {
@@ -97,6 +106,11 @@ describe("JoinRoomForm — UI behaviour (SW-FE-015)", () => {
 describe("JoinRoomForm — input sanitisation (SW-FE-015)", () => {
   beforeEach(() => {
     postMock.mockResolvedValue({ id: 1, code: "TYC001" });
+    seedAuthToken();
+  });
+
+  afterEach(() => {
+    localStorage.removeItem("access_token");
   });
 
   it("strips spaces from pasted input", () => {
@@ -125,6 +139,11 @@ describe("JoinRoomForm — rate limiting (SW-FE-015)", () => {
     pushMock.mockClear();
     postMock.mockClear();
     postMock.mockResolvedValue({ id: 1, code: "TYC001" });
+    seedAuthToken();
+  });
+
+  afterEach(() => {
+    localStorage.removeItem("access_token");
   });
 
   it("shows rate-limit error when submitted twice within cooldown window", async () => {

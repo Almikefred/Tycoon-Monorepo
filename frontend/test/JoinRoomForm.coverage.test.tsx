@@ -28,6 +28,11 @@ vi.mock("@/lib/api/client", () => ({
 beforeEach(() => {
   pushMock.mockClear();
   vi.mocked(apiClient.post).mockReset();
+  localStorage.setItem("access_token", "test-token");
+});
+
+afterEach(() => {
+  localStorage.removeItem("access_token");
 });
 
 describe("JoinRoomForm — coverage (SW-FE-038)", () => {

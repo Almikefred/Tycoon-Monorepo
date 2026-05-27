@@ -39,6 +39,33 @@ export const joinRoomSchema = z.object({
     ),
 });
 
+/** Optional invite token from deep links — URL-safe alphanumeric. */
+export const inviteTokenSchema = z
+  .string()
+  .transform((v) => v.trim())
+  .pipe(
+    z
+      .string()
+      .min(8, "Invite token must be at least 8 characters")
+      .max(64, "Invite token is too long")
+      .regex(/^[A-Za-z0-9_-]+$/, "Invite token contains invalid characters")
+  );
+
+/** Optional display name shown in the waiting room lobby. */
+export const displayNameSchema = z
+  .string()
+  .transform((v) => v.trim())
+  .pipe(
+    z
+      .string()
+      .min(1, "Display name is required")
+      .max(32, "Display name must be 32 characters or fewer")
+      .regex(
+        /^[\p{L}\p{N}\s'.-]+$/u,
+        "Display name contains invalid characters"
+      )
+  );
+
 export const gameSettingsSchema = z.object({
   playerName: z.string().min(1, "Host name is required").max(32, "Max 32 characters"),
   customStake: z
