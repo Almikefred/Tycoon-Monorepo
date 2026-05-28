@@ -1,29 +1,13 @@
-"use client";
+﻿"use client";
 
 import { Dices, Gamepad2, Bot } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { track } from "@/lib/analytics";
+import React, { useCallback, useEffect } from "react";
+import { useHeroTelemetry } from "@/hooks/useHeroTelemetry";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 interface HeroSectionMobileProps {
-  className?: string | undefined;
-}
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  return reduced;
+  className?: string;
 }
 
 /**
@@ -33,47 +17,34 @@ function usePrefersReducedMotion(): boolean {
  * - Use with useMediaQuery: render HeroSectionMobile when (window.innerWidth < 768)
  * - Or use conditional render in parent: {isMobile ? <HeroSectionMobile /> : <HeroSection />}
  * - Or rely on CSS: show/hide with md:hidden / hidden md:block on wrapper divs
- *
- * @example
- * ```tsx
- * const isMobile = useMediaQuery('(max-width: 767px)');
- * return isMobile ? <HeroSectionMobile /> : <HeroSection />;
- * ```
- *
- * @example
- * ```tsx
- * <div className="md:hidden"><HeroSectionMobile /></div>
- * <div className="hidden md:block"><HeroSection /></div>
- * ```
  */
 export default function HeroSectionMobile({ className }: HeroSectionMobileProps): React.ReactElement {
   const router = useRouter();
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const { trackHeroViewed, trackCtaClicked } = useHeroTelemetry();
+  const prefersReducedMotion = useReducedMotion();
+
+  // #828: track hero section view once on mount
+  useEffect(() => {
+    trackHeroViewed();
+  }, [trackHeroViewed]);
 
   const ctaBase =
     "min-h-[48px] min-w-[48px] flex items-center justify-center gap-2 font-orbitron font-[700] rounded-xl transition-transform active:scale-95 touch-manipulation";
 
-  const handleTrackedNavigation = (
-    event: "continue_game_click" | "multiplayer_click" | "join_room_click" | "play_ai_click",
-    destination: string,
-  ): void => {
-    track(event, {
-      route: "/",
-      destination,
-    });
-
-    router.push(destination);
-  }
+  const handleTrackedNavigation = useCallback(
+    (cta: "continue_game" | "multiplayer" | "join_room" | "challenge_ai", destination: string): void => {
+      trackCtaClicked(cta, destination);
+      router.push(destination);
+    },
+    [trackCtaClicked, router],
+  );
 
   return (
-    <section className={`z-0 w-full min-h-[calc(100dvh-87px)] relative overflow-x-hidden py-8 px-4 bg-[#010F10] ${className || ""}`}>
+    <section className={`z-0 w-full min-h-[calc(100dvh-87px)] relative overflow-x-hidden py-8 px-4 bg-[#010F10] ${className ?? ""}`}>
       {/* Simplified background: flat gradient */}
       <div
         className="absolute inset-0 opacity-60"
-        style={{
-          background:
-            "linear-gradient(180deg, #010F10 0%, #0a1f21 40%, #010F10 100%)",
-        }}
+        style={{ background: "linear-gradient(180deg, #010F10 0%, #0a1f21 40%, #010F10 100%)" }}
         aria-hidden
       />
 
@@ -83,7 +54,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           Welcome back, Player!
         </p>
 
-        {/* Title - stacked, smaller */}
+        {/* Title */}
         <h1 className="min-h-[42px] font-orbitron font-[900] text-[36px] leading-[42px] tracking-tight uppercase text-[#17ffff]">
           TYCOON
           <span
@@ -94,21 +65,21 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           </span>
         </h1>
 
-        {/* Tagline - condensed */}
+        {/* Tagline */}
         <p className="min-h-[24px] font-orbitron text-[16px] font-[700] text-[#F0F7F7]">
-          Conquer • Build • Trade On
+          Conquer  Build  Trade On
         </p>
 
         {/* Description */}
         <p className="font-dmSans text-[14px] text-[#F0F7F7]/90 leading-relaxed">
-          Step into Tycoon — the Web3 twist on the classic game. Play solo vs
+          Step into Tycoon  the Web3 twist on the classic game. Play solo vs
           AI, compete in multiplayer, and become the ultimate tycoon.
         </p>
 
         {/* Stacked CTAs - touch-friendly (min 48px) */}
         <div className="w-full flex flex-col gap-3 mt-2">
           <button
-            onClick={() => handleTrackedNavigation("continue_game_click", "/game-settings")}
+            onClick={() => handleTrackedNavigation("continue_game", "/game-settings")}
             className={`w-full ${ctaBase} bg-[#00F0FF] text-[#010F10] text-[16px] py-4`}
             aria-label="Continue game"
           >
@@ -117,7 +88,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           </button>
 
           <button
-            onClick={() => handleTrackedNavigation("multiplayer_click", "/game-settings")}
+            onClick={() => handleTrackedNavigation("multiplayer", "/game-settings")}
             className={`w-full ${ctaBase} border-2 border-[#00F0FF] text-[#00F0FF] text-[14px] py-3`}
             aria-label="Multiplayer"
           >
@@ -126,7 +97,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           </button>
 
           <button
-            onClick={() => handleTrackedNavigation("join_room_click", "/join-room")}
+            onClick={() => handleTrackedNavigation("join_room", "/join-room")}
             className={`w-full ${ctaBase} border-2 border-[#003B3E] text-[#0FF0FC] text-[14px] py-3`}
             aria-label="Join room"
           >
@@ -135,7 +106,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           </button>
 
           <button
-            onClick={() => handleTrackedNavigation("play_ai_click", "/play-ai")}
+            onClick={() => handleTrackedNavigation("challenge_ai", "/play-ai")}
             className={`w-full ${ctaBase} bg-[#00F0FF] text-[#010F10] text-[14px] py-4 uppercase tracking-wide`}
             aria-label="Challenge AI"
           >
