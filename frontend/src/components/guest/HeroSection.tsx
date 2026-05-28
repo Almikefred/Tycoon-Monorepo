@@ -47,6 +47,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className, router: routerProp
   const prefersReducedMotion = usePrefersReducedMotion();
   const [error, setError] = useState<HeroErrorState>({ hasError: false, message: "" });
 
+  // #826: observe CLS / LCP against the "Good" Web Vitals budget
+  useHeroPerformanceBudget();
+
   // SW-3: fire hero_view once on mount
   useEffect(() => {
     fire("hero_view");
@@ -159,6 +162,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className, router: routerProp
         {/* Main Title — single h1 on this page */}
         <h1
           data-testid="hero-main-title"
+          data-lcp="true"
           className="block-text font-[900] font-orbitron lg:text-[116px] md:text-[98px] text-[54px] lg:leading-[120px] md:leading-[100px] leading-[60px] tracking-[-0.02em] uppercase text-[#17ffff] relative"
         >
           {t(HERO_I18N.title.main)}
