@@ -11,7 +11,7 @@ export interface ToastConfig extends ToastOptions {
 /**
  * Toast queue to prevent rapid duplicate toasts
  */
-class ToastManager {
+export class ToastManager {
     private queue: Map<string, number> = new Map();
     private readonly DEDUP_TIMEOUT = 3000; // 3 seconds
     private isInitialized = false;
