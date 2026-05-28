@@ -14,6 +14,10 @@ vi.mock("@/lib/analytics", () => ({
   track: vi.fn(),
 }));
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
 vi.mock("react-type-animation", () => ({
   TypeAnimation: (props: {
     preRenderFirstString?: boolean;
