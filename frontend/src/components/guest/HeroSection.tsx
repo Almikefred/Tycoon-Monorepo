@@ -5,6 +5,7 @@ import { TypeAnimation } from "react-type-animation";
 import { useRouter } from "next/navigation";
 import { useHeroTelemetry } from "@/hooks/useHeroTelemetry";
 import { sanitizeError } from "@/lib/errors";
+import { useHeroPerformanceBudget } from "@/lib/hero-perf-budget";
 
 interface HeroSectionProps {
   className?: string;
@@ -40,6 +41,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
   const { fire } = useHeroTelemetry();
   const prefersReducedMotion = usePrefersReducedMotion();
   const [error, setError] = useState<HeroErrorState>({ hasError: false, message: "" });
+
+  // #826: observe CLS / LCP against the "Good" Web Vitals budget
+  useHeroPerformanceBudget();
 
   // SW-3: fire hero_view once on mount
   useEffect(() => {
@@ -153,6 +157,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
         {/* Main Title — single h1 on this page */}
         <h1
           data-testid="hero-main-title"
+          data-lcp="true"
           className="block-text font-[900] font-orbitron lg:text-[116px] md:text-[98px] text-[54px] lg:leading-[120px] md:leading-[100px] leading-[60px] tracking-[-0.02em] uppercase text-[#17ffff] relative"
         >
           TYCOON
