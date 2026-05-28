@@ -1,6 +1,7 @@
 import GameSettingsClient from "@/clients/GameSettingsClient";
 import { generatePageMetadata } from "@/lib/metadata";
 import type { Metadata } from "next";
+import * as React from "react";
 
 export const metadata: Metadata = generatePageMetadata({
   title: "Game Settings",
