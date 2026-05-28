@@ -52,14 +52,14 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className, router: routerProp
 
   // SW-3: fire hero_view once on mount
   useEffect(() => {
-    fire("hero_view");
-  }, [fire]);
+    trackHeroViewed();
+  }, [trackHeroViewed]);
 
   // SW-FE-005: Error boundary for navigation failures
   const handleTrackedNavigation = useCallback(
-    (event: "continue_game_click" | "multiplayer_click" | "join_room_click" | "challenge_ai_click", destination: string) => {
+    (cta: "continue_game" | "multiplayer" | "join_room" | "challenge_ai", destination: string) => {
       try {
-        fire(event);
+        trackCtaClicked(cta, destination);
         router.push(destination);
       } catch (err) {
         const sanitized = sanitizeError(err);
@@ -68,7 +68,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className, router: routerProp
         }
       }
     },
-    [fire, router],
+    [trackCtaClicked, router],
   );
 
   // SW-FE-005: Empty state — show a friendly message when there's no content to display
@@ -89,7 +89,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className, router: routerProp
           <button
             onClick={() => {
               setError({ hasError: false, message: "" });
-              fire("hero_view");
+              trackHeroViewed();
             }}
             className="font-orbitron text-[#010F10] bg-[#00F0FF] px-6 py-3 rounded-lg font-[700] text-[14px] hover:opacity-90 transition-opacity"
             aria-label={t(HERO_I18N.error.tryAgain)}

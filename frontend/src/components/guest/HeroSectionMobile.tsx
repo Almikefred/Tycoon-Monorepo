@@ -59,6 +59,11 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
   const prefersReducedMotion = usePrefersReducedMotion();
   const [error, setError] = useState<HeroErrorState>({ hasError: false, message: "" });
 
+  // #828: track hero section view once on mount
+  useEffect(() => {
+    trackHeroViewed();
+  }, [trackHeroViewed]);
+
   const ctaBase =
     "min-h-[48px] min-w-[48px] flex items-center justify-center gap-2 font-orbitron font-[700] rounded-xl transition-transform active:scale-95 touch-manipulation";
 
@@ -135,7 +140,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
         {/* Stacked CTAs - touch-friendly (min 48px) */}
         <div className="w-full flex flex-col gap-3 mt-2">
           <button
-            onClick={() => handleTrackedNavigation("continue_game_click", "/game-settings")}
+            onClick={() => handleTrackedNavigation("continue_game", "/game-settings")}
             className={`w-full ${ctaBase} bg-[#00F0FF] text-[#010F10] text-[16px] py-4`}
             aria-label={t(HERO_I18N.buttons.continueGame)}
           >
@@ -144,7 +149,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           </button>
 
           <button
-            onClick={() => handleTrackedNavigation("multiplayer_click", "/game-settings")}
+            onClick={() => handleTrackedNavigation("multiplayer", "/game-settings")}
             className={`w-full ${ctaBase} border-2 border-[#00F0FF] text-[#00F0FF] text-[14px] py-3`}
             aria-label={t(HERO_I18N.buttons.multiplayer)}
           >
@@ -153,7 +158,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           </button>
 
           <button
-            onClick={() => handleTrackedNavigation("join_room_click", "/join-room")}
+            onClick={() => handleTrackedNavigation("join_room", "/join-room")}
             className={`w-full ${ctaBase} border-2 border-[#003B3E] text-[#0FF0FC] text-[14px] py-3`}
             aria-label={t(HERO_I18N.buttons.joinRoom)}
           >
