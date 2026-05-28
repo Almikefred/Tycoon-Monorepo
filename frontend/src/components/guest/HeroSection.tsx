@@ -1,10 +1,14 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { Dices, Gamepad2 } from "lucide-react";
-import { TypeAnimation } from "react-type-animation";
 import { useRouter } from "next/navigation";
 import { useHeroTelemetry } from "@/hooks/useHeroTelemetry";
 import { sanitizeError } from "@/lib/errors";
+
+// #834: Lazy-load TypeAnimation to reduce initial bundle size
+const TypeAnimation = lazy(() =>
+  import("react-type-animation").then((m) => ({ default: m.TypeAnimation }))
+);
 
 interface HeroSectionProps {
   className?: string;
@@ -48,7 +52,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
 
   // SW-FE-005: Error boundary for navigation failures
   const handleTrackedNavigation = useCallback(
-    (event: "continue_game_click" | "multiplayer_click" | "join_room_click" | "challenge_ai_click", destination: string) => {
+    (event: "hero_cta_click" | "hero_join_room_click" | "hero_challenge_ai_click" | "hero_multiplayer_click", destination: string) => {
       try {
         fire(event);
         router.push(destination);
@@ -61,6 +65,33 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
     },
     [fire, router],
   );
+
+  // #833: Keyboard shortcut bindings for hero CTAs
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if focus is inside an input/textarea/select/button to avoid conflicts
+      const tag = (e.target as HTMLElement).tagName;
+      if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      switch (e.key.toUpperCase()) {
+        case "G":
+          handleTrackedNavigation("hero_cta_click", "/game-settings");
+          break;
+        case "M":
+          handleTrackedNavigation("hero_multiplayer_click", "/game-settings");
+          break;
+        case "J":
+          handleTrackedNavigation("hero_join_room_click", "/join-room");
+          break;
+        case "A":
+          handleTrackedNavigation("hero_challenge_ai_click", "/play-ai");
+          break;
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleTrackedNavigation]);
 
   // SW-FE-005: Empty state — show a friendly message when there's no content to display
   if (error.hasError) {
@@ -127,27 +158,29 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
           aria-atomic="true"
           className="flex min-h-[30px] md:min-h-[44px] lg:min-h-[56px] justify-center items-center md:gap-6 gap-3 mt-4 md:mt-6 lg:mt-4"
         >
-          <TypeAnimation
-            sequence={[
-              "Conquer",
-              1200,
-              "Conquer • Build",
-              1200,
-              "Conquer • Build • Trade On",
-              1800,
-              "Play Solo vs AI",
-              2000,
-              "Conquer • Build",
-              1000,
-              "Conquer",
-              1000,
-            ]}
-            wrapper="span"
-            speed={typeSpeed}
-            repeat={prefersReducedMotion ? 1 : Infinity}
-            preRenderFirstString
-            className="font-orbitron lg:text-[40px] md:text-[30px] text-[20px] font-[700] text-[#F0F7F7] text-center block"
-          />
+          <Suspense fallback={<span className="font-orbitron lg:text-[40px] md:text-[30px] text-[20px] font-[700] text-[#F0F7F7]">Conquer</span>}>
+            <TypeAnimation
+              sequence={[
+                "Conquer",
+                1200,
+                "Conquer • Build",
+                1200,
+                "Conquer • Build • Trade On",
+                1800,
+                "Play Solo vs AI",
+                2000,
+                "Conquer • Build",
+                1000,
+                "Conquer",
+                1000,
+              ]}
+              wrapper="span"
+              speed={typeSpeed}
+              repeat={prefersReducedMotion ? 1 : Infinity}
+              preRenderFirstString
+              className="font-orbitron lg:text-[40px] md:text-[30px] text-[20px] font-[700] text-[#F0F7F7] text-center block"
+            />
+          </Suspense>
         </div>
 
         {/* Main Title — single h1 on this page */}
@@ -171,25 +204,27 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
             aria-atomic="true"
             className="min-h-[30px] md:min-h-[44px] lg:min-h-[56px]"
           >
-            <TypeAnimation
-              sequence={[
-                "Roll the dice",
-                2000,
-                "Buy properties",
-                2000,
-                "Collect rent",
-                2000,
-                "Play against AI opponents",
-                2200,
-                "Become the top tycoon",
-                2000,
-              ]}
-              wrapper="span"
-              speed={subSpeed}
-              repeat={prefersReducedMotion ? 1 : Infinity}
-              preRenderFirstString
-              className="font-orbitron lg:text-[40px] md:text-[30px] text-[20px] font-[700] text-[#F0F7F7] text-center block"
-            />
+            <Suspense fallback={<span className="font-orbitron lg:text-[40px] md:text-[30px] text-[20px] font-[700] text-[#F0F7F7]">Roll the dice</span>}>
+              <TypeAnimation
+                sequence={[
+                  "Roll the dice",
+                  2000,
+                  "Buy properties",
+                  2000,
+                  "Collect rent",
+                  2000,
+                  "Play against AI opponents",
+                  2200,
+                  "Become the top tycoon",
+                  2000,
+                ]}
+                wrapper="span"
+                speed={subSpeed}
+                repeat={prefersReducedMotion ? 1 : Infinity}
+                preRenderFirstString
+                className="font-orbitron lg:text-[40px] md:text-[30px] text-[20px] font-[700] text-[#F0F7F7] text-center block"
+              />
+            </Suspense>
           </div>
           <p className="font-dmSans font-[400] md:text-[18px] text-[14px] text-[#F0F7F7] mt-4">
             Step into Tycoon — the Web3 twist on the classic game of strategy,
@@ -205,7 +240,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
           <button
             data-testid="hero-primary-cta"
             aria-label="Continue game"
-            onClick={() => handleTrackedNavigation("continue_game_click", "/game-settings")}
+            aria-keyshortcuts="G"
+            onClick={() => handleTrackedNavigation("hero_cta_click", "/game-settings")}
             className="relative group w-[300px] h-[56px] bg-transparent border-none p-0 overflow-hidden cursor-pointer transition-transform group-hover:scale-105"
           >
             <svg
@@ -233,7 +269,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
           {/* Multiplayer */}
           <button
             aria-label="Multiplayer"
-            onClick={() => handleTrackedNavigation("multiplayer_click", "/game-settings")}
+            aria-keyshortcuts="M"
+            onClick={() => handleTrackedNavigation("hero_multiplayer_click", "/game-settings")}
             className="relative group w-[227px] h-[40px] bg-transparent border-none p-0 overflow-hidden cursor-pointer"
           >
             <svg
@@ -262,7 +299,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
           {/* Join Room */}
           <button
             aria-label="Join room"
-            onClick={() => handleTrackedNavigation("join_room_click", "/join-room")}
+            aria-keyshortcuts="J"
+            onClick={() => handleTrackedNavigation("hero_join_room_click", "/join-room")}
             className="relative group w-[140px] h-[40px] bg-transparent border-none p-0 overflow-hidden cursor-pointer"
           >
             <svg
@@ -291,7 +329,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ className }) => {
           {/* Challenge AI */}
           <button
             aria-label="Challenge AI"
-            onClick={() => handleTrackedNavigation("challenge_ai_click", "/play-ai")}
+            aria-keyshortcuts="A"
+            onClick={() => handleTrackedNavigation("hero_challenge_ai_click", "/play-ai")}
             className="relative group w-[260px] h-[52px] bg-transparent border-none p-0 overflow-hidden cursor-pointer transition-transform duration-300 group-hover:scale-105"
           >
             <svg
