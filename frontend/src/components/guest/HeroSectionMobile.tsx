@@ -2,11 +2,17 @@
 
 import { Dices, Gamepad2, Bot } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
+import { sanitizeError } from "@/lib/errors";
 
 interface HeroSectionMobileProps {
   className?: string | undefined;
+}
+
+interface HeroErrorState {
+  hasError: boolean;
+  message: string;
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -49,24 +55,69 @@ function usePrefersReducedMotion(): boolean {
 export default function HeroSectionMobile({ className }: HeroSectionMobileProps): React.ReactElement {
   const router = useRouter();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const [error, setError] = useState<HeroErrorState>({ hasError: false, message: "" });
+  const tryAgainRef = useRef<HTMLButtonElement>(null);
+
+  // Move focus to Try Again when error state activates.
+  useEffect(() => {
+    if (error.hasError) {
+      tryAgainRef.current?.focus();
+    }
+  }, [error.hasError]);
 
   const ctaBase =
     "min-h-[48px] min-w-[48px] flex items-center justify-center gap-2 font-orbitron font-[700] rounded-xl transition-transform active:scale-95 touch-manipulation";
 
-  const handleTrackedNavigation = (
-    event: "continue_game_click" | "multiplayer_click" | "join_room_click" | "play_ai_click",
-    destination: string,
-  ): void => {
-    track(event, {
-      route: "/",
-      destination,
-    });
+  const handleTrackedNavigation = useCallback(
+    (
+      event: "continue_game_click" | "multiplayer_click" | "join_room_click" | "play_ai_click",
+      destination: string,
+    ): void => {
+      try {
+        track(event, { route: "/", destination });
+        router.push(destination);
+      } catch (err) {
+        const sanitized = sanitizeError(err);
+        if (sanitized) {
+          setError({ hasError: true, message: sanitized.userMessage || "An unexpected error occurred" });
+        }
+      }
+    },
+    [router],
+  );
 
-    router.push(destination);
+  if (error.hasError) {
+    return (
+      <section
+        aria-label="Landing hero"
+        role="alert"
+        className={`z-0 w-full min-h-[calc(100dvh-87px)] relative overflow-x-hidden py-8 px-4 bg-[#010F10] flex items-center justify-center ${className || ""}`}
+      >
+        <div className="text-center px-4">
+          <p className="font-orbitron text-[#00F0FF] text-[20px] font-[700] mb-4">
+            Something went wrong
+          </p>
+          <p className="font-dmSans text-[#F0F7F7] text-[14px] mb-6">
+            {error.message}
+          </p>
+          <button
+            ref={tryAgainRef}
+            onClick={() => setError({ hasError: false, message: "" })}
+            className="font-orbitron text-[#010F10] bg-[#00F0FF] px-6 py-3 rounded-lg font-[700] text-[14px] hover:opacity-90 transition-opacity"
+            aria-label="Try again"
+          >
+            Try Again
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section className={`z-0 w-full min-h-[calc(100dvh-87px)] relative overflow-x-hidden py-8 px-4 bg-[#010F10] ${className || ""}`}>
+    <section
+      aria-label="Landing hero"
+      className={`z-0 w-full min-h-[calc(100dvh-87px)] relative overflow-x-hidden py-8 px-4 bg-[#010F10] ${className || ""}`}
+    >
       {/* Simplified background: flat gradient */}
       <div
         className="absolute inset-0 opacity-60"
@@ -74,7 +125,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
           background:
             "linear-gradient(180deg, #010F10 0%, #0a1f21 40%, #010F10 100%)",
         }}
-        aria-hidden
+        aria-hidden="true"
       />
 
       <div className="relative z-10 mx-auto flex max-w-md flex-col items-center gap-6 text-center">
@@ -112,7 +163,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
             className={`w-full ${ctaBase} bg-[#00F0FF] text-[#010F10] text-[16px] py-4`}
             aria-label="Continue game"
           >
-            <Gamepad2 className="w-6 h-6 shrink-0" />
+            <Gamepad2 aria-hidden="true" className="w-6 h-6 shrink-0" />
             Continue Game
           </button>
 
@@ -121,7 +172,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
             className={`w-full ${ctaBase} border-2 border-[#00F0FF] text-[#00F0FF] text-[14px] py-3`}
             aria-label="Multiplayer"
           >
-            <Gamepad2 className="w-5 h-5 shrink-0" />
+            <Gamepad2 aria-hidden="true" className="w-5 h-5 shrink-0" />
             Multiplayer
           </button>
 
@@ -130,7 +181,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
             className={`w-full ${ctaBase} border-2 border-[#003B3E] text-[#0FF0FC] text-[14px] py-3`}
             aria-label="Join room"
           >
-            <Dices className="w-5 h-5 shrink-0" />
+            <Dices aria-hidden="true" className="w-5 h-5 shrink-0" />
             Join Room
           </button>
 
@@ -139,7 +190,7 @@ export default function HeroSectionMobile({ className }: HeroSectionMobileProps)
             className={`w-full ${ctaBase} bg-[#00F0FF] text-[#010F10] text-[14px] py-4 uppercase tracking-wide`}
             aria-label="Challenge AI"
           >
-            <Bot className="w-5 h-5 shrink-0" />
+            <Bot aria-hidden="true" className="w-5 h-5 shrink-0" />
             Challenge AI!
           </button>
         </div>
