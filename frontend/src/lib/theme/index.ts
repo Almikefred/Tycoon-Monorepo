@@ -5,3 +5,4 @@ export {
 } from "./constants";
 export type { ResolvedTheme, ThemePreference } from "./constants";
 export { getChartPalette, getContrastRatio } from "./chart-palette";
+export type { ChartPalette } from "./chart-palette";
