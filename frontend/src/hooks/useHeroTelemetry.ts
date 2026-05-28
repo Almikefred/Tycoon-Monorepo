@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Privacy-safe telemetry hook for the landing hero (#828).
  *
@@ -9,6 +7,8 @@
  *  - All payloads pass through sanitizeAnalyticsPayload automatically via track().
  *  - Disabled server-side (track() is a no-op in SSR via analytics client guard).
  */
+
+"use client";
 
 import { useCallback } from "react";
 import { track } from "@/lib/analytics";
