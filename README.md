@@ -2,6 +2,12 @@
 
 Tycoon is a multiplayer board game platform backed by smart contracts on Stellar (Soroban) and NEAR (wallet auth). This monorepo contains the game backend, frontend, shop microservice, and on-chain contracts.
 
+## Getting Started
+
+Bring the stack up with `docker compose up`, then confirm the shop-api is healthy by calling `GET /health` (for example, `curl http://localhost:3000/health`). If that endpoint responds successfully, the service is ready for local development.
+
+## ⚠️ Setup Required
+
 ## Architecture
 
 ```
