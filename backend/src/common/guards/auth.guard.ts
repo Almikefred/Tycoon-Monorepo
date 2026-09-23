@@ -11,9 +11,50 @@ import { timingSafeEqual } from 'crypto';
 /**
  * JwtAuthGuard - Use this guard to protect routes that require JWT authentication.
  * Apply with @UseGuards(JwtAuthGuard) decorator.
+ *
+ * ADR-004: access tokens are delivered as httpOnly Secure SameSite cookies and
+ * are never readable from JavaScript. This guard therefore extracts the token
+ * from the cookie first and only falls back to the Authorization header for
+ * non-browser clients (e.g. server-to-server calls).
  */
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {}
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  static readonly ACCESS_COOKIE = 'access_token';
+
+  handleRequest<TUser = unknown>(
+    err: unknown,
+    user: TUser,
+    info: unknown,
+    context: ExecutionContext,
+  ): TUser {
+    if (err || !user) {
+      throw (
+        err ||
+        new UnauthorizedException({
+          code: 'AUTH_UNAUTHORIZED',
+          message: 'Authentication required.',
+        })
+      );
+    }
+    return user;
+  }
+
+  getRequest(context: ExecutionContext): Request {
+    const request = context.switchToHttp().getRequest<Request>();
+    // Prefer the httpOnly cookie (ADR-004); fall back to bearer header.
+    const cookieToken = this.extractCookieToken(request);
+    if (cookieToken && !request.headers.authorization) {
+      request.headers.authorization = `Bearer ${cookieToken}`;
+    }
+    return request;
+  }
+
+  private extractCookieToken(request: Request): string | undefined {
+    const cookies = (request as Request & { cookies?: Record<string, string> })
+      .cookies;
+    return cookies?.[JwtAuthGuard.ACCESS_COOKIE];
+  }
+}
 
 /**
  * AgentCallbackGuard - Protects agent-vs-agent HMAC callback entrypoints.
