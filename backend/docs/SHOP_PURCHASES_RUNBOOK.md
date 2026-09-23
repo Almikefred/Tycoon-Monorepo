@@ -15,6 +15,24 @@ shop-api users).
 - Field mapping between backend and shop-api payloads lives in
   `docs/SHOP_ARCHITECTURE.md` and ADR-003. Do not duplicate that mapping here.
 
+## Authoritative write path (ADR-001)
+
+`shop-api` is the single source of truth for money, inventory, and purchase state.
+The backend `POST /shop/purchase` endpoint is a **proxy/read model only**: it forwards
+the request to `shop-api` and must never mutate balances or inventory itself. Any
+backend-side caching (e.g. `shop:inventory:<USER_ID>`) is a derived read model and
+must be invalidated from `shop-api` responses, never treated as authoritative.
+
+## Common Issues & Troubleshooting
+
+- `shop-api` owns the purchase ledger and inventory. It is the single source of
+  truth for purchase writes.
+- The backend `POST /shop/purchase` endpoint is a BFF: it performs authz, then
+  proxies the write to shop-api. It does **not** insert a local purchase row on
+  the success path when the proxy flag is enabled.
+- Field mapping between backend and shop-api payloads lives in
+  `docs/SHOP_ARCHITECTURE.md` and ADR-003. Do not duplicate that mapping here.
+
 ## Authoritative write path (ADR-001 / ADR-003)
 
 Purchase writes flow through exactly one path:
@@ -93,6 +111,45 @@ Response (201 Created):
 }
 ```
 
+## Canary Reconciliation & Rollback (Proxy)
+
+When rolling out a new `shop-api` purchase path behind the backend proxy, use a
+canary and reconcile before promoting. The proxy must fail closed on writes.
+
+### Canary Procedure
+1.  Route a small percentage of `POST /shop/purchase` traffic to the canary via the
+    proxy flag (e.g. `SHOP_PURCHASE_CANARY_PERCENT`). Reads may stay on stable.
+2.  Watch RED metrics for the purchase path: `tycoon_purchases_total` (rate/errors)
+    and latency histograms, split by canary vs stable.
+3.  Reconcile canary vs stable before widening:
+    ```sql
+    SELECT idempotency_key, status, created_at
+    FROM purchases
+    WHERE created_at > now() - interval '1 hour'
+    ORDER BY created_at DESC;
+    ```
+    Confirm no duplicate `idempotency_key` rows and that inventory deltas match
+    successful purchases (inventory must never go negative).
+4.  Widen the canary only after a clean reconciliation window.
+
+### Rollback Procedure
+1.  Set the canary percentage to `0` (or disable the proxy flag) to send all
+    purchase writes back to the stable path. This is the primary rollback lever.
+2.  Do **not** delete idempotency keys during rollback — replaying a key must still
+    return the stored response so clients cannot double-purchase across the switch.
+3.  If the canary wrote partial state, reconcile against `shop-api` (source of truth)
+    and correct the backend read model by invalidating `shop:inventory:<USER_ID>`.
+4.  Record the incident and rollback in `audit_trails` with a reason.
+
+### Fail-Closed Behavior
+If `shop-api` (or its Postgres/Redis dependencies) is unavailable, the proxy must
+return an error and **not** fall back to a local write. Writes fail closed; reads may
+serve stale cached data with a clear degraded indicator.
+
+## Monitoring & Metrics
+-   **Metric**: `tycoon_purchases_total` - Track successful vs failed purchases.
+-   **Metric**: `tycoon_coupon_usage_total` - Monitor marketing campaign effectiveness.
+
 **Duplicate request (replay)** — same Idempotency-Key, original has completed:
 ```bash
 curl -X POST http://localhost:3000/shop/purchase \
@@ -105,6 +162,28 @@ curl -X POST http://localhost:3000/shop/purchase \
     "coupon_code": "SAVE10"
   }'
 ```
+
+Response (201 Created, **X-Idempotency-Replayed: true**):
+```
+X-Idempotency-Replayed: true
+```
+```json
+{
+  "id": 123,
+  "user_id": 456,
+  "shop_item_id": 42,
+  "quantity": 1,
+  "final_price": "9.99",
+  "status": "completed",
+  "created_at": "2026-08-26T10:30:00Z"
+}
+```
+**Note**: Same response body and purchase ID; no new charge; item not added again.
+
+**Concurrent duplicate request** — same Idempotency-Key, original still in-flight:
+```bash
+curl -X POST http://localhost:3000/shop/purchase \
+  
 
 Response (201 Created, **X-Idempotency-Replayed: true**):
 ```

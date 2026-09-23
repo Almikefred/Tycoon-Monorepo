@@ -3,6 +3,96 @@
 ## Overview
 This runbook provides guidance for managing game lifecycles, troubleshooting matchmaking issues, and ensuring game state consistency.
 
+## Realtime Transport (ADR-002)
+
+Games are served over a WebSocket gateway on the `/games` namespace. The gateway is the
+single source of truth for realtime turn flow; REST remains available for non-realtime reads.
+
+### Handshake & Authentication (ADR-004)
+-   Clients authenticate during the socket handshake with a JWT supplied via the auth cookie
+    or the `Authorization: Bearer <token>` header. The gateway validates the token with the
+    same secret/issuer as the REST API.
+-   Unauthenticated or expired tokens are rejected at connect time with a `connect_error`
+    carrying `{ code: 'UNAUTHORIZED', requestId }`. Clients must refresh the token and
+    reconnect; the gateway never upgrades an anonymous socket.
+-   If a JWT expires mid-game, the socket is disconnected on the next authenticated event.
+    The client should refresh and rejoin the room (see Reconnect below).
+
+### Rooms & Seat Authorization
+-   Each game maps to a room keyed by `gameId`. On `join`, the gateway verifies the caller
+    holds a seat in that game before adding the socket to the room.
+-   `join` is idempotent: a duplicate join for the same `gameId`/`seat` is a no-op and returns
+    the current room state rather than erroring or double-adding the socket.
+-   Turn actions are authorized against the caller's seat. A `roll` from a socket that does not
+    own the active turn is rejected with `{ code: 'NOT_YOUR_TURN', requestId }`.
+
+### Server-Authoritative Dice
+-   Dice outcomes are generated **only** on the server. Any client-supplied roll value in the
+    payload is ignored and never trusted; the server result is what is broadcast to the room.
+-   Roll events are rate-limited per socket/seat. Excess rolls are rejected with
+    `{ code: 'RATE_LIMITED', requestId }` and counted in `tycoon_games_roll_rejected_total`.
+
+### Payload Schema Version
+-   Every gateway payload includes a `schemaVersion` field. Bump it on any breaking change and
+    keep the gateway tolerant of the previous version during rollout.
+
+### Redis Adapter (Horizontal Scale)
+-   The gateway uses the Redis adapter so events fan out across all instances. Without it,
+    multi-instance deploys drop events for sockets connected to other pods.
+-   On a Redis partition, instances stop receiving cross-pod events. Sockets stay connected but
+    may miss broadcasts; clients recover via reconnect + replay (below). Alert on adapter
+    connection errors and treat sustained partitions as a degraded-realtime incident.
+
+### Reconnect & Idempotency
+-   Reconnect is coordinated with action idempotency keys: clients resend the last mutation with
+    the same `X-Idempotency-Key`, and the server replays the stored result instead of re-rolling.
+-   On reconnect the client rejoins its room; the gateway replays the current authoritative state
+    so the client can reconcile any missed events.
+
+## Game Code Lifecycle: PENDING → RUNNING (Stake Locks)
+
+Matchmaking game codes move through an explicit, server-owned state machine. The server is the
+only authority for transitions; clients can never set `status` directly.
+
+### States
+-   `PENDING` — a game code has been created by the host and is awaiting a joiner. The host's
+    stake is **locked** at creation time.
+-   `RUNNING` — the joiner has been admitted, both stakes are locked, and the game is live.
+-   `CANCELLED` — the code expired or was cancelled before a joiner arrived; all locked stakes
+    are released back to their owners.
+
+### Create (host)
+1.  Host calls `POST /games` with an `X-Idempotency-Key`. The server validates the JWT and
+    confirms the caller is a seated participant.
+2.  The server locks the host's stake and inserts the game with `status = 'PENDING'` in a single
+    transaction. If the stake lock fails (insufficient balance, dependency outage), the whole
+    operation fails closed and no game row is written.
+3.  A duplicate create with the same idempotency key replays the stored result instead of
+    creating a second game or double-locking the stake.
+
+### Join (joiner)
+1.  Joiner calls `POST /games/:code/join` with an `X-Idempotency-Key`. The server validates the
+    JWT and confirms the caller is not already seated.
+2.  The server locks the joiner's stake and transitions the game `PENDING → RUNNING` atomically.
+    The transition is guarded by a conditional update (`WHERE status = 'PENDING'`); if the row is
+    no longer `PENDING` the join is rejected with `{ code: 'GAME_NOT_PENDING', requestId }`.
+3.  Concurrent duplicate joins are serialized by the conditional update plus the idempotency key:
+    exactly one join wins, the rest replay the stored result or receive `GAME_NOT_PENDING`.
+
+### Invariants
+-   A game is `RUNNING` **only** when both stakes are locked. Never transition without a lock.
+-   Stake locks are released on `CANCELLED` and on terminal game completion; never on a failed
+    transition.
+-   All transitions are fail-closed: if Postgres/Redis/shop-api is unavailable, the write is
+    rejected rather than partially applied.
+
+### Error Codes
+-   `GAME_NOT_PENDING` — join attempted against a game that is not `PENDING`.
+-   `STAKE_LOCK_FAILED` — stake could not be locked (insufficient funds or dependency outage).
+-   `FORBIDDEN` — caller does not hold a seat / is not authorized for the transition.
+-   `UNAUTHORIZED` — missing or expired JWT.
+-   `RATE_LIMITED` — too many create/join attempts from the caller.
+
 ## Common Issues & Troubleshooting
 
 ### 1. Matchmaking Timeouts
@@ -26,6 +116,7 @@ If a game is in `RUNNING` status but no progress is being made (e.g., player dis
     ```sql
     UPDATE games SET status = 'CANCELLED' WHERE id = <GAME_ID>;
     ```
+    Cancelling releases any locked stakes; verify balances before and after.
 
 ### 3. Idempotency Failures
 If a user receives a `400 Bad Request` with "X-Idempotency-Key header is required":
@@ -47,7 +138,12 @@ If AI players are not moving:
 ## Monitoring & Metrics
 -   **Metric**: `tycoon_games_active_total` - Gauge of currently running games.
 -   **Metric**: `tycoon_matchmaking_duration_seconds` - Histogram of time to match players.
+-   **Metric**: `tycoon_games_pending_total` - Gauge of games awaiting a joiner.
+-   **Metric**: `tycoon_games_transition_total` - Counter of `PENDING → RUNNING` transitions, labelled by outcome.
+-   **Metric**: `tycoon_stake_lock_failures_total` - Counter of failed stake locks (fail-closed writes).
 -   **Metric**: `tycoon_idempotency_hits_total` - Monitor how often replay protection is triggered.
+-   **Metric**: `tycoon_games_roll_rejected_total` - Counter of rejected rolls (off-turn, rate-limited, or client-supplied outcomes).
+-   **Metric**: `tycoon_games_ws_connections_total` - Gauge of active WebSocket connections on `/games`.
 
 ## Realtime Board State Synchronization
 
