@@ -25,6 +25,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let error: string | undefined;
+    let code: string | undefined;
     let stack: string | undefined;
 
     if (exception instanceof HttpException) {
@@ -42,6 +43,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
           ? (raw as string[]).join('; ')
           : (raw as string) || exception.message;
         error = responseObj.error as string | undefined;
+        // Preserve explicit machine-readable error codes (e.g. HMAC/SSRF
+        // callback rejections) so clients can branch on them per
+        // docs/API_ERROR_RESPONSE_STANDARDS.md.
+        code = responseObj.code as string | undefined;
       }
       stack = exception.stack;
     } else if (exception instanceof Error) {
@@ -85,6 +90,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
       );
     }
 
+    // Correlation id for tracing user-facing / money-adjacent paths.
+    const requestId =
+      (request.headers['x-request-id'] as string | undefined) ||
+      (request.id as string | undefined);
+
     // Log the error with context
     const logContext = {
       statusCode: httpStatus,
@@ -94,6 +104,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       userAgent: request.headers['user-agent'],
       errorMessage: message,
       error,
+      code,
+      requestId,
       stack,
     };
 
@@ -109,6 +121,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       path: httpAdapter.getRequestUrl(ctx.getRequest()),
       message,
       ...(error && { error }),
+      ...(code && { code }),
+      ...(requestId && { requestId }),
     };
 
     httpAdapter.reply(ctx.getResponse(), responseBody, httpStatus);
