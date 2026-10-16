@@ -2,6 +2,10 @@ export interface ShopItem {
   id: string;
   name: string;
   description: string;
+  /**
+   * Price in the shop catalog. Must be a finite number greater than zero;
+   * the shop write path rejects negative, zero, NaN and Infinity values.
+   */
   price: number;
   isActive: boolean;
   images: string[];
