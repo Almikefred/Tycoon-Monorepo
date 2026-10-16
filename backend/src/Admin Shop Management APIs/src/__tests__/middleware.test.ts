@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
+import { validateShopItem } from '../middleware/validation';
 
 describe('Middleware', () => {
   let mockRequest: Partial<Request>;
@@ -108,6 +109,80 @@ describe('Middleware', () => {
       );
 
       expect(mockResponse.status).toHaveBeenCalledWith(403);
+      expect(nextFunction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validateShopItem price', () => {
+    const validBody = {
+      name: 'Sword',
+      description: 'A sharp sword',
+      price: 10,
+      isActive: true,
+    };
+
+    it('should accept a valid positive finite price', () => {
+      mockRequest.body = { ...validBody, price: 10 };
+
+      validateShopItem(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction,
+      );
+
+      expect(nextFunction).toHaveBeenCalled();
+      expect(mockResponse.status).not.toHaveBeenCalled();
+    });
+
+    it('should reject a negative price', () => {
+      mockRequest.body = { ...validBody, price: -1 };
+
+      validateShopItem(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction,
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(nextFunction).not.toHaveBeenCalled();
+    });
+
+    it('should reject a zero price', () => {
+      mockRequest.body = { ...validBody, price: 0 };
+
+      validateShopItem(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction,
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(nextFunction).not.toHaveBeenCalled();
+    });
+
+    it('should reject a NaN price', () => {
+      mockRequest.body = { ...validBody, price: NaN };
+
+      validateShopItem(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction,
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(nextFunction).not.toHaveBeenCalled();
+    });
+
+    it('should reject an Infinity price', () => {
+      mockRequest.body = { ...validBody, price: Infinity };
+
+      validateShopItem(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction,
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
       expect(nextFunction).not.toHaveBeenCalled();
     });
   });
