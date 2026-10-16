@@ -1,4 +1,4 @@
-import { shopService } from '../services/shopService';
+import { shopService, ShopServiceError } from '../services/shopService';
 
 describe('ShopService', () => {
   beforeEach(() => {
@@ -20,6 +20,66 @@ describe('ShopService', () => {
       expect(item.price).toBe(99.99);
       expect(item).toHaveProperty('createdAt');
       expect(item).toHaveProperty('updatedAt');
+    });
+
+    it('should throw a typed error when the name already exists', () => {
+      shopService.createItem({
+        name: 'Duplicate',
+        description: 'First',
+        price: 10,
+        isActive: true,
+        images: [],
+      });
+
+      expect(() =>
+        shopService.createItem({
+          name: 'Duplicate',
+          description: 'Second',
+          price: 20,
+          isActive: true,
+          images: [],
+        })
+      ).toThrow(ShopServiceError);
+
+      try {
+        shopService.createItem({
+          name: 'Duplicate',
+          description: 'Third',
+          price: 30,
+          isActive: true,
+          images: [],
+        });
+        fail('expected createItem to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ShopServiceError);
+        expect((error as ShopServiceError).code).toBe('DUPLICATE_ITEM');
+      }
+    });
+
+    it('should throw a typed error when the sku already exists', () => {
+      shopService.createItem({
+        name: 'First',
+        description: 'First',
+        price: 10,
+        sku: 'SKU-1',
+        isActive: true,
+        images: [],
+      });
+
+      try {
+        shopService.createItem({
+          name: 'Second',
+          description: 'Second',
+          price: 20,
+          sku: 'SKU-1',
+          isActive: true,
+          images: [],
+        });
+        fail('expected createItem to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ShopServiceError);
+        expect((error as ShopServiceError).code).toBe('DUPLICATE_ITEM');
+      }
     });
   });
 
@@ -95,9 +155,39 @@ describe('ShopService', () => {
       expect(updated?.description).toBe('Old Description');
     });
 
-    it('should return null for non-existent item', () => {
-      const updated = shopService.updateItem('999', { name: 'New Name' });
-      expect(updated).toBeNull();
+    it('should throw a typed error for a non-existent item', () => {
+      try {
+        shopService.updateItem('999', { name: 'New Name' });
+        fail('expected updateItem to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ShopServiceError);
+        expect((error as ShopServiceError).code).toBe('ITEM_NOT_FOUND');
+      }
+    });
+
+    it('should throw a typed error when renaming to an existing name', () => {
+      shopService.createItem({
+        name: 'Existing',
+        description: 'Existing',
+        price: 50,
+        isActive: true,
+        images: [],
+      });
+      const created = shopService.createItem({
+        name: 'Other',
+        description: 'Other',
+        price: 60,
+        isActive: true,
+        images: [],
+      });
+
+      try {
+        shopService.updateItem(created.id, { name: 'Existing' });
+        fail('expected updateItem to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ShopServiceError);
+        expect((error as ShopServiceError).code).toBe('DUPLICATE_ITEM');
+      }
     });
   });
 
@@ -148,9 +238,14 @@ describe('ShopService', () => {
       expect(item).toBeUndefined();
     });
 
-    it('should return false for non-existent item', () => {
-      const success = shopService.deleteItem('999');
-      expect(success).toBe(false);
+    it('should throw a typed error for a non-existent item', () => {
+      try {
+        shopService.deleteItem('999');
+        fail('expected deleteItem to throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ShopServiceError);
+        expect((error as ShopServiceError).code).toBe('ITEM_NOT_FOUND');
+      }
     });
   });
 
