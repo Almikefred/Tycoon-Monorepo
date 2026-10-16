@@ -1,11 +1,20 @@
-import dotenv from 'dotenv';
 import { createApp } from './app';
+import { parsePort } from './parsePort';
 
-dotenv.config();
-
-const PORT = process.env.PORT || 3000;
+const PORT = parsePort(process.env.PORT);
 const app = createApp();
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`Theme Marketplace Integration listening on port ${PORT}`);
 });
+
+function shutdown(signal: string): void {
+  console.log(`Received ${signal}, shutting down gracefully...`);
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

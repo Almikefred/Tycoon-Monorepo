@@ -40,7 +40,7 @@ export class AnalyticsService {
       .select('SUM(transaction.amount)', 'total')
       .getRawOne();
 
-    return parseFloat(result?.total || '0');
+    return this.toNumber(result?.total);
   }
 
   private async getPopularItems(): Promise<PopularItemDto[]> {
@@ -59,8 +59,8 @@ export class AnalyticsService {
     return items.map((item) => ({
       itemId: item.itemId,
       itemName: item.itemName,
-      purchaseCount: parseInt(item.purchaseCount),
-      totalRevenue: parseFloat(item.totalRevenue),
+      purchaseCount: this.toNumber(item.purchaseCount),
+      totalRevenue: this.toNumber(item.totalRevenue),
     }));
   }
 
@@ -75,8 +75,8 @@ export class AnalyticsService {
       .select('COUNT(DISTINCT transaction.playerId)', 'count')
       .getRawOne();
 
-    const total = parseInt(totalPlayers?.count || '0');
-    const purchased = parseInt(purchasedPlayers?.count || '0');
+    const total = this.toNumber(totalPlayers?.count);
+    const purchased = this.toNumber(purchasedPlayers?.count);
 
     return total > 0 ? (purchased / total) * 100 : 0;
   }
@@ -121,7 +121,18 @@ export class AnalyticsService {
       .andWhere('activity.createdAt >= :end', { end: endDate })
       .getRawOne();
 
-    const returned = parseInt(returnedPlayers?.count || '0');
+    const returned = this.toNumber(returnedPlayers?.count);
     return (returned / initialPlayers.length) * 100;
+  }
+
+  /**
+   * Coerces a raw aggregate value (which Postgres returns as `null` for an
+   * empty result set, or as a string for SUM/COUNT) into a finite number so
+   * the response DTO never leaks `null`/`NaN` where a number is promised.
+   */
+  private toNumber(value: unknown): number {
+    if (value === null || value === undefined) return 0;
+    const parsed = typeof value === 'number' ? value : parseFloat(String(value));
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 }

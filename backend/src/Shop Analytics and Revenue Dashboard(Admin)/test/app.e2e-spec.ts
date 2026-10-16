@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { Repository } from 'typeorm';
@@ -18,6 +18,13 @@ describe('Analytics E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
     await app.init();
 
     transactionRepo = moduleFixture.get<Repository<Transaction>>(
@@ -45,6 +52,13 @@ describe('Analytics E2E', () => {
       expect(response.body.totalRevenue).toBe(0);
       expect(response.body.popularItems).toEqual([]);
       expect(response.body.conversionRate).toBe(0);
+    });
+
+    it('should reject unknown query parameters with 400', async () => {
+      await request(app.getHttpServer())
+        .get('/admin/analytics/shop')
+        .query({ unknownParam: 'value' })
+        .expect(400);
     });
 
     it('should return analytics with transaction data', async () => {

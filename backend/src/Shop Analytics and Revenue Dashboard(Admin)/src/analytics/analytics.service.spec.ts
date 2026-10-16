@@ -102,5 +102,70 @@ describe('AnalyticsService', () => {
       expect(result.popularItems).toEqual([]);
       expect(result.conversionRate).toBe(0);
     });
+
+    it('should return zero-valued numeric fields when the aggregation returns an empty result set', async () => {
+      // Postgres returns null for SUM/AVG over an empty set; the service must
+      // coerce those nulls to 0 so the response matches the DTO types.
+      mockQueryBuilder.getRawOne.mockResolvedValue({
+        total: null,
+        count: null,
+      });
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getShopAnalytics();
+
+      expect(result.totalRevenue).toBe(0);
+      expect(result.conversionRate).toBe(0);
+      expect(result.popularItems).toEqual([]);
+
+      const numericFields = [
+        result.totalRevenue,
+        result.conversionRate,
+        result.retentionMetrics?.day1Retention,
+        result.retentionMetrics?.day7Retention,
+        result.retentionMetrics?.day30Retention,
+      ];
+
+      for (const value of numericFields) {
+        expect(value).not.toBeNull();
+        expect(value).not.toBeNaN();
+        expect(value).toBe(0);
+      }
+    });
+
+    it('should return the aggregated values unchanged on the populated path', async () => {
+      mockQueryBuilder.getRawOne
+        .mockResolvedValueOnce({ total: '2500.75' })
+        .mockResolvedValueOnce({ count: '200' })
+        .mockResolvedValueOnce({ count: '50' })
+        .mockResolvedValueOnce({ count: '10' })
+        .mockResolvedValueOnce({ count: '5' })
+        .mockResolvedValueOnce({ count: '2' });
+
+      mockQueryBuilder.getRawMany
+        .mockResolvedValueOnce([
+          {
+            itemId: '1',
+            itemName: 'Potion',
+            purchaseCount: '120',
+            totalRevenue: '2400.75',
+          },
+        ])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.getShopAnalytics();
+
+      expect(result.totalRevenue).toBe(2500.75);
+      expect(result.conversionRate).toBe(25);
+      expect(result.popularItems).toHaveLength(1);
+      expect(result.popularItems[0]).toMatchObject({
+        itemId: '1',
+        itemName: 'Potion',
+        purchaseCount: 120,
+        totalRevenue: 2400.75,
+      });
+    });
   });
 });
